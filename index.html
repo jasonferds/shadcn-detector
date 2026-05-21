@@ -886,7 +886,7 @@
     <div class="footer-left">© 2025 wireframe.shadcn — built with Claude</div>
     <div class="footer-right">
       <a href="https://ui.shadcn.com/docs/components" target="_blank">shadcn/ui docs</a>
-      <a href="https://anthropic.com" target="_blank">Powered by Claude</a>
+      <a href="https://ai.google.dev" target="_blank">Powered by Gemini</a>
     </div>
   </div>
 </footer>
@@ -984,25 +984,20 @@ Respond ONLY with a valid JSON object — no markdown fences, no preamble:
 
 Rules: only use names from the list; confidence 0.0–1.0; sort by confidence desc; reason is brief.`;
 
+  const GOOGLE_KEY = 'AIzaSyD03lA-8QapuJVGh760wpbhOPd1R-9LWww';
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_KEY}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: sys,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: imgMime, data: imgB64 } },
-            { type: 'text', text: 'Identify all shadcn/ui components in this wireframe. Return only the JSON.' }
+        systemInstruction: { parts: [{ text: sys }] },
+        contents: [{
+          parts: [
+            { inlineData: { mimeType: imgMime, data: imgB64 } },
+            { text: 'Identify all shadcn/ui components in this wireframe. Return only the JSON.' }
           ]
-        }]
+        }],
+        generationConfig: { maxOutputTokens: 1000, temperature: 0.1 }
       })
     });
     if (!res.ok) {
@@ -1010,8 +1005,8 @@ Rules: only use names from the list; confidence 0.0–1.0; sort by confidence de
       throw new Error(`API ${res.status}: ${errBody?.error?.message || res.statusText}`);
     }
     const data = await res.json();
-    const raw = data.content.map(b => b.text || '').join('').trim().replace(/```json|```/g, '').trim();
-    render(JSON.parse(raw));
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    render(JSON.parse(raw.replace(/```json|```/g, '').trim()));
   } catch (e) {
     showErr('Analysis failed — ' + e.message);
   } finally {
